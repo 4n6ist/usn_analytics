@@ -34,7 +34,7 @@ macOS(OS X) doesn't support static binary build so edit Makefile
 CFLAGS := -std=gnu++11 -O3
 ```
 
-then cd usn_analtyics ; make
+then cd usn_analytics ; make
 
 ## Documentation & Download
 
