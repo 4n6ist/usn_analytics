@@ -70,6 +70,10 @@ int UsnJrnl::GetAllUsnOffset() {
     delete ur;
   }
   printf("Done\n");
+  if(usn_set.size() == 0) {
+    printf("No USN record found. Check input file is correct.\n");
+    exit(EXIT_FAILURE);
+  } 
   return 0;
 }
 
