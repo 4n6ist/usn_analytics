@@ -649,6 +649,7 @@ int UsnJrnl::WriteOpenedRecords(char *odname, bool lt) {
 int UsnJrnl::WriteSuspiciousInfo() {
   map<string, uint16_t> job_table, exe_table, dll_table, scr_table, ps1_table, vb_table, bat_table, tck_table;
   map<string, string> psexec_table;  // timestamp, filename
+  map<string, string> paexec_table;  // timestamp, filename
   //map<string, uint16_t> stream_table, ea_table;
   int i;
   
@@ -672,9 +673,13 @@ int UsnJrnl::WriteSuspiciousInfo() {
 #ifdef _WIN32
     if (stricmp(usnmain_set[i].file_name.c_str(), "PSEXESVC.exe") == 0)      
        psexec_table[usnmain_set[i].timestamp_s] = usnmain_set[i].file_name;
+    if (strncmp(usnmain_set[i].file_name.c_str(), "PAExec-", 7) == 0)      
+       paexec_table[usnmain_set[i].timestamp_s] = usnmain_set[i].file_name;
 #else
     if (strcasecmp(usnmain_set[i].file_name.c_str(), "PSEXESVC.exe") == 0)      
        psexec_table[usnmain_set[i].timestamp_s] = usnmain_set[i].file_name;    
+    if (strncmp(usnmain_set[i].file_name.c_str(), "PAExec-", 7) == 0)      
+       paexec_table[usnmain_set[i].timestamp_s] = usnmain_set[i].file_name;    
 #endif
         
   }
@@ -691,6 +696,17 @@ int UsnJrnl::WriteSuspiciousInfo() {
   fprintf(fp_ofreport, "\n[PSEXESVC] %lu files (timestamp, name)\n", psexec_table.size());
   i=0;
   for(auto x: psexec_table) {
+    fprintf(fp_ofreport, "%s, %s\n", x.first.c_str(), x.second.c_str());
+    i++;
+    if(i > 1024) {
+      fprintf(fp_ofreport, "reached 1024 files...skip the rest\n");
+      break;
+    }      
+  }
+
+  fprintf(fp_ofreport, "\n[PAExec-] %lu files (timestamp, name)\n", paexec_table.size());
+  i=0;
+  for(auto x: paexec_table) {
     fprintf(fp_ofreport, "%s, %s\n", x.first.c_str(), x.second.c_str());
     i++;
     if(i > 1024) {
