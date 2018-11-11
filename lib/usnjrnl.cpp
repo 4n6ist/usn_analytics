@@ -56,13 +56,11 @@ int UsnJrnl::GetAllUsnOffset() {
       offset += 8;
       delete ur;
       continue;
-    } else if(result == V2_RECORD) {
+    } else if(result == V2_RECORD || result == V3_RECORD) {
 	    usn_set.push_back(ur->usn_record.Usn);
 	    usn_table[ur->usn_record.Usn] = offset;
 	  } else if(result == CORRUPT_RECORD) {
       corrupt_offset_set.push_back(offset);
-    } else if (result == V3_RECORD) {
-      printf("USN_RECORD_V3 found at offset %lld, skip\n", offset);
 	  } else if (result == V4_RECORD) {
       printf("USN_RECORD_V4 found at offset %lld, skip\n", offset);
 	  } 
@@ -713,7 +711,7 @@ int UsnJrnl::WriteSuspiciousInfo() {
       fprintf(fp_ofreport, "reached 1024 files...skip the rest\n");
       break;
     }      
-  }
+  } 
 
   printf("...Done\n");  
 

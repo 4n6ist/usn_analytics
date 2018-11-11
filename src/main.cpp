@@ -24,7 +24,7 @@ bool raw = false; // output all of raw records
 #endif
 
 void usage(void) {
-	printf("USN Analytics (https://www.kazamiya.net/usn_analytics/) v.201801\n\n");
+	printf("USN Analytics (https://www.kazamiya.net/usn_analytics/) v.201811beta\n\n");
 	printf("Usage  : usn_analytics.exe [-ru] -o output input\n\n");
 	printf("     -r: parse all of USN_RECORD and write to all.csv with raw style\n");
 	printf("     -u: treat a timestamp as UTC (default: Local Time)\n");

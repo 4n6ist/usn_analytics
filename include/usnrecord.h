@@ -17,12 +17,36 @@ extern bool lt; // true: localtime, false: utc
 
 using namespace std;
 
+struct USN_RECORD_COMMON_HEADER {
+  uint32_t RecordLength;
+  uint16_t MajorVersion;
+  uint16_t MinorVersion;
+};
+
 struct USN_RECORD_V2 {
   uint32_t RecordLength;
   uint16_t MajorVersion;
   uint16_t MinorVersion;
   uint64_t FileReferenceNumber;
   uint64_t ParentFileReferenceNumber;
+  uint64_t Usn;
+  uint64_t TimeStamp;
+  uint32_t Reason;
+  uint32_t SourceInfo;
+  uint32_t SecurityId;
+  uint32_t FileAttributes;
+  uint16_t FileNameLength;
+  uint16_t FileNameOffset;
+};
+
+struct USN_RECORD_V3 {
+  uint32_t RecordLength;
+  uint16_t MajorVersion;
+  uint16_t MinorVersion;
+  uint64_t FileReferenceNumber;
+  uint64_t FileReferenceNumber2; // workaround until compiler supports uint128_t 
+  uint64_t ParentFileReferenceNumber;
+  uint64_t ParentFileReferenceNumber2; // workaround until compiler supports uint128_t
   uint64_t Usn;
   uint64_t TimeStamp;
   uint32_t Reason;
@@ -101,7 +125,9 @@ private:
   int WriteRecord(FILE*);
   
 public:
+  USN_RECORD_COMMON_HEADER usn_record_header;
   USN_RECORD_V2 usn_record;
+  USN_RECORD_V3 usn_record_v3;
   uint64_t offset;
   uint32_t cid; // actually should be uint48_t
   uint16_t cid_seq;
@@ -112,7 +138,9 @@ public:
 public:
   UsnRecord(FILE*);
   int IsValidRecord(uint64_t);
+  int ReadRecordHeader(uint64_t);
   int ReadRecord(uint64_t);
+  int ReadRecordV3(uint64_t);
   int ReadParseRecord(uint64_t);
   int ReadParseWriteRecord(FILE*, uint64_t);
 };

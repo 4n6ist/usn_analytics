@@ -22,16 +22,17 @@ UsnRecord::UsnRecord(FILE* fp) {
 // return: USN_RECORD_TYPE
 int UsnRecord::IsValidRecord(uint64_t _offset) {
 
-  UsnRecord::ReadRecord(_offset);
+  UsnRecord::ReadRecordHeader(_offset);
 
   // validation check
-  if(usn_record.RecordLength < 64 || usn_record.RecordLength > 576 || usn_record.RecordLength % 8 != 0)
+  if(usn_record_header.RecordLength < 64 || usn_record_header.RecordLength > 576 || usn_record_header.RecordLength % 8 != 0)
     return NOT_RECORD;
       
-  if(usn_record.MinorVersion != 0)
+  if(usn_record_header.MinorVersion != 0)
     return NOT_RECORD;
   
-  if(usn_record.MajorVersion == 2) {
+  if(usn_record_header.MajorVersion == 2) {
+    UsnRecord::ReadRecord(_offset);
     if(usn_record.FileNameOffset != 60)
       return NOT_RECORD;
 	  if(is_valid_ts(usn_record.TimeStamp) && is_valid_usn(usn_record.Usn)
@@ -40,12 +41,39 @@ int UsnRecord::IsValidRecord(uint64_t _offset) {
 	  else
 		  return CORRUPT_RECORD;
   }
-  else if(usn_record.MajorVersion == 3)
-    return V3_RECORD;
-  else if(usn_record.MajorVersion == 4)
+  else if(usn_record_header.MajorVersion == 3) {
+    UsnRecord::ReadRecordV3(_offset); 
+    if(usn_record.FileNameOffset != 76)
+      return NOT_RECORD;
+	  if(is_valid_ts(usn_record.TimeStamp) && is_valid_usn(usn_record.Usn)
+      && usn_record.Reason != 0 && usn_record.FileNameLength < 512 && usn_record.FileNameLength % 2 == 0)
+		  return V3_RECORD;
+	  else
+		  return CORRUPT_RECORD;
+  }
+  else if(usn_record_header.MajorVersion == 4)
     return V4_RECORD;
   else
     return NOT_RECORD;
+}
+
+// Read as USN_RECORD_COMMON_HEADER at offset and store usn_record_header member 
+int UsnRecord::ReadRecordHeader(uint64_t _offset) {
+  
+  offset = _offset;
+  data = (unsigned char*)malloc(sizeof(USN_RECORD_COMMON_HEADER));
+
+  fseeko64(fp_in, offset, SEEK_SET);
+
+  if(fread(data, 1, sizeof(USN_RECORD_COMMON_HEADER), fp_in) != sizeof(USN_RECORD_COMMON_HEADER)) {
+    free(data);
+    return -1;
+  }
+
+  memcpy(&(usn_record_header), data, sizeof(USN_RECORD_COMMON_HEADER));
+    
+  free(data);
+  return 0;
 }
 
 // Read as USN_RECORD_V2 at offset and store usn_record member 
@@ -66,6 +94,40 @@ int UsnRecord::ReadRecord(uint64_t _offset) {
   free(data);
   return 0;
 }
+
+// Read as USN_RECORD_V3 at offset, store, and move from usn_record_v3 to usn_record member 
+int UsnRecord::ReadRecordV3(uint64_t _offset) {
+  
+  offset = _offset;
+  data = (unsigned char*)malloc(sizeof(USN_RECORD_V3));
+
+  fseeko64(fp_in, offset, SEEK_SET);
+
+  if(fread(data, 1, sizeof(USN_RECORD_V3), fp_in) != sizeof(USN_RECORD_V3)) {
+    free(data);
+    return -1;
+  }
+
+  // Re-read as V3 Structure  
+  memcpy(&(usn_record_v3), data, sizeof(USN_RECORD_V3));
+  usn_record.RecordLength = usn_record_v3.RecordLength;
+  usn_record.MajorVersion = usn_record_v3.MajorVersion;
+  usn_record.MinorVersion = usn_record_v3.MinorVersion;
+  usn_record.FileReferenceNumber = usn_record_v3.FileReferenceNumber2;
+  usn_record.ParentFileReferenceNumber = usn_record_v3.ParentFileReferenceNumber2;
+  usn_record.Usn = usn_record_v3.Usn;
+  usn_record.TimeStamp = usn_record_v3.TimeStamp;
+  usn_record.Reason = usn_record_v3.Reason;
+  usn_record.SourceInfo = usn_record_v3.SourceInfo;
+  usn_record.SecurityId = usn_record_v3.SecurityId;
+  usn_record.FileAttributes = usn_record_v3.FileAttributes;
+  usn_record.FileNameLength = usn_record_v3.FileNameLength;
+  usn_record.FileNameOffset = usn_record_v3.FileNameOffset;
+    
+  free(data);
+  return 0;
+}
+
 
 // Parse fileid, parentid and filename
 int UsnRecord::ParseRecord() {
@@ -104,7 +166,13 @@ int UsnRecord::GetFileName() {
 }
 
 int UsnRecord::ReadParseRecord(uint64_t offset) {
-  UsnRecord::ReadRecord(offset);
+  UsnRecord::ReadRecordHeader(offset);
+  if(usn_record_header.MajorVersion == 2)
+    UsnRecord::ReadRecord(offset);
+  else if(usn_record_header.MajorVersion == 3)
+    UsnRecord::ReadRecordV3(offset);
+  else
+    return -1; // unknown error
   UsnRecord::ParseRecord();
   return 0;
 }
@@ -137,7 +205,13 @@ int UsnRecord::WriteRecord(FILE *fp) {
 }
 
 int UsnRecord::ReadParseWriteRecord(FILE* fp, uint64_t offset) {
-  UsnRecord::ReadRecord(offset);
+  UsnRecord::ReadRecordHeader(offset);
+  if(usn_record_header.MajorVersion == 2)
+    UsnRecord::ReadRecord(offset);
+  else if(usn_record_header.MajorVersion == 3)
+    UsnRecord::ReadRecordV3(offset);
+  else
+    return -1; // unknown error
   UsnRecord::ParseRecord();
   UsnRecord::WriteRecord(fp);
   return 0;
